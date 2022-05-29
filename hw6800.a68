@@ -1,0 +1,76 @@
+; HELLO WORLD! for the Motorola 6800
+;
+; A simple test program for Jeff Tranter's ET-3400 clone. I/O routines
+; are largely copied from Jeff's implementation of BASIC 680.
+;
+; Pulled together by Jim McClanahan W4JBM, May 2022
+;
+; Assemble using:
+; $ ./a68 hw6800.a68 -l hw6800.lst -s hw6800.s
+; $ unix2dos hw6800.s
+; $ cp hw6800.s ~
+
+;
+; Point to ACIA locations we will use
+;
+aciacr  equ $8300       ; Control Register
+aciasr  equ $8300       ; Status Register
+aciadr  equ $8301       ; Data Register
+
+;
+; Print Hello World!
+;
+        org $1000
+
+start:  lds #stack
+        jsr inita
+        ldx  #mess      ; indeX register points to message
+loop:   ldab 0,x        ; load Accumulator from X
+        cmp b,#0        ; is it a zero?
+        beq finish      ; if so, we're done...
+print:  jsr outch       ; otherwise, print it,
+        inx             ; point to next character,
+        bra loop        ; and loop
+
+;
+; When we are done, just loop and wait for a reset
+;
+
+finish: bra finish
+
+;
+; INITA - Initialize ACIA
+;
+inita:  ldaa #$03       ; Reset the ACIA
+        staa aciacr
+        ldaa #$15       ; Set ACIA to 8N1, CLK/16, RTS Low
+        staa aciacr
+        rts
+
+;
+; OUTCH - Output character to ACIA
+;
+outch:  psha            ; Save Acc A
+        ldaa #2         ; Mask to test control register
+outlp:  bita aciasr
+        beq outlp       ; Loop until ACIA is ready to send
+        pshb            ; Save Acc B
+        andb #$7F       ; Mask off Bit 7 to leave ASCII
+        stab aciadr     ; Send the character
+        pulb            ; Restore Acc B
+        tstb            ; and Restore Flags
+        pula            ; Restore Acc A
+        rts
+
+;
+; Null terminated message string follows...
+;
+mess:   fcc "Hello World!"
+        fcb 13, 10, 0
+
+;
+; Reserve some stack space
+        rmb 16
+stack:
+
+        end

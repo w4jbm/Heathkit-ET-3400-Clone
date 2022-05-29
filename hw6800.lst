@@ -1,0 +1,82 @@
+                        ; HELLO WORLD! for the Motorola 6800
+                        ;
+                        ; A simple test program for Jeff Tranter's ET-3400 clone. I/O routines
+                        ; are largely copied from Jeff's implementation of BASIC 680.
+                        ;
+                        ; Pulled together by Jim McClanahan W4JBM, May 2022
+                        ;
+                        ; Assemble using:
+                        ; $ ./a68 hw6800.a68 -l hw6800.lst -s hw6800.s
+                        ; $ unix2dos hw6800.s
+                        ; $ cp hw6800.s ~
+                        
+                        ;
+                        ; Point to ACIA locations we will use
+                        ;
+   8300                 aciacr  equ $8300       ; Control Register
+   8300                 aciasr  equ $8300       ; Status Register
+   8301                 aciadr  equ $8301       ; Data Register
+                        
+                        ;
+                        ; Print Hello World!
+                        ;
+   1000                         org $1000
+                        
+   1000   8e 10 53      start:  lds #stack
+   1003   bd 10 17              jsr inita
+   1006   ce 10 34              ldx  #mess      ; indeX register points to message
+   1009   e6 00         loop:   ldab 0,x        ; load Accumulator from X
+   100b   c1 00                 cmp b,#0        ; is it a zero?
+   100d   27 06                 beq finish      ; if so, we're done...
+   100f   bd 10 22      print:  jsr outch       ; otherwise, print it,
+   1012   08                    inx             ; point to next character,
+   1013   20 f4                 bra loop        ; and loop
+                        
+                        ;
+                        ; When we are done, just loop and wait for a reset
+                        ;
+                        
+   1015   20 fe         finish: bra finish
+                        
+                        ;
+                        ; INITA - Initialize ACIA
+                        ;
+   1017   86 03         inita:  ldaa #$03       ; Reset the ACIA
+   1019   b7 83 00              staa aciacr
+   101c   86 15                 ldaa #$15       ; Set ACIA to 8N1, CLK/16, RTS Low
+   101e   b7 83 00              staa aciacr
+   1021   39                    rts
+                        
+                        ;
+                        ; OUTCH - Output character to ACIA
+                        ;
+   1022   36            outch:  psha            ; Save Acc A
+   1023   86 02                 ldaa #2         ; Mask to test control register
+   1025   b5 83 00      outlp:  bita aciasr
+   1028   27 fb                 beq outlp       ; Loop until ACIA is ready to send
+   102a   37                    pshb            ; Save Acc B
+   102b   c4 7f                 andb #$7F       ; Mask off Bit 7 to leave ASCII
+   102d   f7 83 01              stab aciadr     ; Send the character
+   1030   33                    pulb            ; Restore Acc B
+   1031   5d                    tstb            ; and Restore Flags
+   1032   32                    pula            ; Restore Acc A
+   1033   39                    rts
+                        
+                        ;
+                        ; Null terminated message string follows...
+                        ;
+   1034   48 65 6c 6c   mess:   fcc "Hello World!"
+   1038   6f 20 57 6f   
+   103c   72 6c 64 21   
+   1040   0d 0a 00              fcb 13, 10, 0
+                        
+                        ;
+                        ; Reserve some stack space
+   1043                         rmb 16
+   1053                 stack:
+                        
+   1053                         end
+8300  aciacr        8301  aciadr        8300  aciasr        1015  finish    
+1017  inita         1009  loop          1034  mess          1022  outch     
+1025  outlp         100f  print         1053  stack         1000  start     
+
